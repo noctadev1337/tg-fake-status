@@ -1,0 +1,15 @@
+[Unit]
+Description=TG-Fake-Status Scheduler
+After=network.target
+
+[Service]
+ExecStart=/opt/tg-fake-status/venv/bin/python3 /opt/tg-fake-status/daemon.py
+WorkingDirectory=/opt/tg-fake-status
+User=tgfake
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+
+[Install]
+WantedBy=multi-user.target

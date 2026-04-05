@@ -1,6 +1,6 @@
 # TG-FAKE-STATUS
 
-Скрипт выставляет статус «онлайн» в Telegram по расписанию. Работает через Telethon — напрямую как клиент, не бот. Telegram сбрасывает онлайн через ~5 минут без активности, поэтому каждая сессия автоматически разбивается на блоки по 4 минуты.
+Скрипт выставляет статус «онлайн» в Telegram по расписанию. Работает через Telethon — напрямую как клиент, не бот. Telegram сбрасывает онлайн через несколько минут без активности, поэтому каждая сессия автоматически разбивается на блоки по 4 минуты с пингом каждые 30 секунд.
 
 > **Приватность.** Авторизация происходит целиком на вашем сервере. Сессия хранится локально в файле `session.session`. Автор не имеет доступа к вашим данным, аккаунту или сессии — никакие данные никуда не передаются.
 
@@ -29,8 +29,8 @@
 ### 1. Клонируем репозиторий
 
 ```bash
-git clone https://github.com/noctadev1337/tg-fake-status
-cd tg-fake-status
+git clone https://github.com/noctadev1337/tg-fake-status /opt/tg-fake-status
+cd /opt/tg-fake-status
 ```
 
 ### 2. Создаём виртуальное окружение
@@ -52,15 +52,15 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Открываем `.env` и вписываем свои данные:
+`.env` уже содержит рабочие значения — менять не нужно, если не хочешь использовать собственный `api_id`:
 
 ```env
 API_ID=2040
 API_HASH=b18441a1ff607e10a989891a5462e627
-SESSION_PATH=/root/tg-fake-status/session
+SESSION_PATH=/opt/tg-fake-status/session
 ```
 
-> `API_ID` и `API_HASH` можно получить на [my.telegram.org](https://my.telegram.org) → API development tools.
+> Свои `API_ID` и `API_HASH` можно получить на [my.telegram.org](https://my.telegram.org) → API development tools.
 
 ---
 
@@ -131,31 +131,17 @@ PYTHONIOENCODING=utf-8 python3 main.py
 
 ## Запуск как системный сервис
 
-### 1. Правим путь в сервис-файле
+### 1. Создаём пользователя для сервиса
 
-Открываем `tg-fake-status.service` и убеждаемся что пути верны:
-
-```ini
-[Unit]
-Description=TG-Fake-Status Scheduler
-After=network.target
-
-[Service]
-ExecStart=/root/tg-fake-status/venv/bin/python3 /root/tg-fake-status/daemon.py
-WorkingDirectory=/root/tg-fake-status
-Restart=always
-RestartSec=10
-Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONIOENCODING=utf-8
-
-[Install]
-WantedBy=multi-user.target
+```bash
+useradd -r -s /bin/false tgfake
+chown -R tgfake:tgfake /opt/tg-fake-status
 ```
 
 ### 2. Устанавливаем сервис
 
 ```bash
-cp tg-fake-status.service /etc/systemd/system/
+cp /opt/tg-fake-status/tg-fake-status.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable tg-fake-status
 ```
@@ -201,8 +187,8 @@ systemctl disable tg-fake-status
 
 ```bash
 # редактируем расписание
-source venv/bin/activate
-PYTHONIOENCODING=utf-8 python3 main.py
+source /opt/tg-fake-status/venv/bin/activate
+PYTHONIOENCODING=utf-8 python3 /opt/tg-fake-status/main.py
 
 # перезапускаем сервис чтобы подхватил новое расписание
 systemctl restart tg-fake-status
@@ -212,13 +198,13 @@ systemctl restart tg-fake-status
 
 ## Как работает логика сессий
 
-Telegram сбрасывает статус «онлайн» через ~5 минут без активности клиента. Чтобы обойти это ограничение, каждая сессия разбивается на блоки:
+Telegram сбрасывает статус «онлайн» через несколько минут без активности клиента. Чтобы обойти это ограничение, каждая сессия разбивается на блоки по 4 минуты с пингом каждые 30 секунд:
 
 ```
-22:00  входим онлайн     (блок 240с)
-22:04  уходим оффлайн    (пауза 20с)
-22:04  входим онлайн     (блок 240с)
-22:08  уходим оффлайн    (пауза 20с)
+22:00  -> online   (блок 240с, пинг каждые 30с)
+22:04  -> offline  (пауза 5с)
+22:04  -> online   (блок 240с, пинг каждые 30с)
+22:08  -> offline  (пауза 5с)
 ...
 23:30  сессия завершена
 ```
@@ -256,4 +242,4 @@ tg-fake-status/
 
 ## Лицензия
 
-MIT — делай с кодом что хочешь.
+MIT — делай с кодом что хочешь, мне все равно.
