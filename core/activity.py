@@ -4,7 +4,7 @@ from telethon import TelegramClient
 from telethon.tl.functions.account import UpdateStatusRequest
 
 BLOCK_SECONDS = 240
-PAUSE_SECONDS = 20
+PAUSE_SECONDS = 5
 PING_INTERVAL = 30
 
 class ActivityBot:
