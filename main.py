@@ -1,9 +1,7 @@
-import asyncio
+import subprocess
 import sys
 import os
 from core.config_manager import ConfigManager
-from core.activity import ActivityBot
-from core.scheduler_manager import SchedulerManager
 
 BANNER = """\033[36m
   ████████╗ ██████╗     ███████╗ █████╗ ██╗  ██╗███████╗    ███████╗████████╗ █████╗ ████████╗██╗   ██╗███████╗
@@ -16,6 +14,7 @@ BANNER = """\033[36m
 """
 
 SEP = "  " + "─" * 70
+SERVICE_NAME = "tg-fake-status"
 
 def clear(): os.system("clear")
 def banner(): print(BANNER)
@@ -159,41 +158,27 @@ def settings_menu(config):
             except: print("  Неверный формат. Введи целое число.")
             pause()
 
-async def run_scheduler(config):
-    sessions = config.current_schedule
-    if not sessions:
+def launch_service(config):
+    if not config.current_schedule:
         print("  Расписание пусто.")
-        pause(); return
+        pause()
+        return
 
-    bot = ActivityBot(config)
-    await bot.connect()
+    print(f"\n  Перезапускаем сервис {SERVICE_NAME}...")
+    result = subprocess.run(
+        ["systemctl", "restart", SERVICE_NAME],
+        capture_output=True, text=True
+    )
 
-    tz = config.timezone_offset
-    sessions_utc = []
-    for s in sessions:
-        sh, sm = to_utc(s["start"]["hour"], s["start"]["minute"], tz)
-        eh, em = to_utc(s["end"]["hour"],   s["end"]["minute"],   tz)
-        sessions_utc.append({"start": (sh, sm), "end": (eh, em)})
+    if result.returncode == 0:
+        print(f"  Сервис запущен.\n")
+        print(f"  Логи в реальном времени:\n")
+        print(f"    journalctl -u {SERVICE_NAME} -f\n")
+    else:
+        print(f"  Ошибка запуска сервиса:")
+        print(f"  {result.stderr.strip()}")
 
-    sched = SchedulerManager()
-    print(); line()
-    print("  Запуск планировщика:")
-    sched.load(sessions_utc, bot)
-    sched.start()
-    print("  Работает. Ctrl+C для остановки.")
-    line()
-
-    try:
-        await asyncio.Event().wait()
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    finally:
-        sched.stop()
-        await bot.go_offline()
-        await bot.disconnect()
-        if not config.is_saved_as_template():
-            config.clear_current()
-            print("  Расписание не сохранено как шаблон — очищено.")
+    sys.exit(0)
 
 def main():
     config = ConfigManager()
@@ -210,7 +195,7 @@ def main():
 """)
         choice = ask("  > ")
         if choice == "0": sys.exit(0)
-        elif choice == "1": asyncio.run(run_scheduler(config))
+        elif choice == "1": launch_service(config)
         elif choice == "2": edit_schedule(config)
         elif choice == "3": templates_menu(config)
         elif choice == "4": settings_menu(config)
